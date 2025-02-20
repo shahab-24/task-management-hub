@@ -8,10 +8,10 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  updateProfile,
+//   updateProfile,
 } from "firebase/auth";
 import { app } from "../firebase/firebase.config.js";
-import axios from "axios";
+// import axios from "axios";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext(null);
@@ -55,33 +55,33 @@ const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log("CurrentUser-->", currentUser?.email);
 
-      if (currentUser?.email) {
-        setUser(currentUser);
+//       if (currentUser?.email) {
+//         setUser(currentUser);
 
-        // save user
-        await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/users/${currentUser?.email}`,
-          {
-            name: currentUser?.displayName,
-            image: currentUser?.photoURL,
-            email: currentUser?.email,
-          }
-        );
+//         // save user
+//         await axios.post(
+//           `${import.meta.env.VITE_API_URL}/api/users/${currentUser?.email}`,
+//           {
+//             name: currentUser?.displayName,
+//             image: currentUser?.photoURL,
+//             email: currentUser?.email,
+//           }
+//         );
 
-        // Get JWT token
-        await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/jwt`,
-          {
-            email: currentUser?.email,
-          },
-          { withCredentials: true }
-        );
-      } else {
-        setUser(currentUser);
-        await axios.get(`${import.meta.env.VITE_API_URL}/api/logout`, {
-          withCredentials: true,
-        });
-      }
+//         // Get JWT token
+//         await axios.post(
+//           `${import.meta.env.VITE_API_URL}/api/jwt`,
+//           {
+//             email: currentUser?.email,
+//           },
+//           { withCredentials: true }
+//         );
+//       } else {
+//         setUser(currentUser);
+//         await axios.get(`${import.meta.env.VITE_API_URL}/api/logout`, {
+//           withCredentials: true,
+//         });
+//       }
       setLoading(false);
     });
     return () => {

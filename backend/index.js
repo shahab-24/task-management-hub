@@ -10,7 +10,7 @@ app.use(cors());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, Timestamp } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.3jtn0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -24,6 +24,27 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+        const tasksCollection = client.db('taskDB').collection('tasks')
+
+        app.post('/tasks', async(req,res) => {
+                try {
+                        const tasks = {
+                                title: req.body.title,
+                                description: req.body.description,
+                                category: req.body.category || "To-Do",
+                                Timestamp: new Date()
+
+
+                        }
+                        const result = await tasksCollection.insertOne(tasks)
+                        res.status(200).send(result)
+
+                        
+                } catch (error) {
+                        
+                        res.status(500).send({message: 'failed to create tasks'})
+                }
+        })
   
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
