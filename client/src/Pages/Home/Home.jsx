@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { createTask, getTask } from "../../Api/Api";
+import { createTask, deleteTasks, getTask } from "../../Api/Api";
 import Swal from "sweetalert2";
 
 
@@ -33,8 +33,28 @@ const Home = () => {
                 console.log('drag')
         }
 
-        const handleDelete = () => {
+        const handleDelete = async(id) => {
                 console.log('delete')
+
+                const result = await Swal.fire({
+                        title: "Are you sure?",
+                        text: "You won't be able to undo this!",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonText: "Yes, delete it!",
+                      });
+
+                      if(result.isConfirmed){
+                        await deleteTasks(id)
+                        setTasks(tasks.filter((task) => task._id !== id))
+                        Swal.fire("Deleted!", "Your task has been deleted.", "success");
+
+                      }
+
+
+
+
+                
         }
 
 

@@ -16,3 +16,8 @@ export const getTask = async() => {
 const res = await axios.get(API_URL)
 return res.data 
 }
+
+
+export const deleteTasks = async(id)=> {
+        await axios.delete(`${API_URL}/${id}`)
+}

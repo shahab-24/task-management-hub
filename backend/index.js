@@ -10,7 +10,7 @@ app.use(cors());
 
 
 
-const { MongoClient, ServerApiVersion, Timestamp } = require('mongodb');
+const { MongoClient, ServerApiVersion, Timestamp, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.3jtn0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -55,6 +55,18 @@ async function run() {
                 } catch (error) {
                         
                         res.status(500).send({message: 'failed to create tasks'})
+                }
+        })
+
+
+        app.delete('/tasks/:id', async(req,res) => {
+                try {
+                        const id = req.params;
+                        const result = await tasksCollection.deleteOne({_id: new ObjectId(id)})
+                        res.send(result)
+                } catch (error) {
+                        res.status(500).send({message: 'failed to delete task'})
+                        
                 }
         })
   
