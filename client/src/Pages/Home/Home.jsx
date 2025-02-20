@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { createTask } from "../../Api/Api";
+import { createTask, getTask } from "../../Api/Api";
 import Swal from "sweetalert2";
 
 
@@ -8,6 +8,15 @@ const Home = () => {
         const [tasks, setTasks] = useState([])
         const [newTaskTitle, setNewTaskTitle] = useState('')
         const [newTaskDescription, setNewTaskDescription] = useState('')
+
+        useEffect(() => {
+                loadTasks()
+        },[])
+
+        const loadTasks = async() => {
+                const data = await getTask()
+                setTasks(data)
+        }
 
         const addTask = async () => {
                 console.log('task added')

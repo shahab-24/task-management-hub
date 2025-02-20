@@ -26,6 +26,18 @@ async function run() {
   try {
         const tasksCollection = client.db('taskDB').collection('tasks')
 
+        // task get api
+        app.get('/tasks', async(req,res) => {
+                try {
+                        const result = await tasksCollection.find().toArray()
+                        res.status(200).send(result)
+                } catch (error) {
+                        res.status(500).send({message: 'failed to get tasks'})
+                        
+                }
+        })
+
+        // tasks created api
         app.post('/tasks', async(req,res) => {
                 try {
                         const tasks = {
@@ -46,7 +58,7 @@ async function run() {
                 }
         })
   
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+   
   } finally {
  
   }
