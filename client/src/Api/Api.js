@@ -18,6 +18,17 @@ return res.data
 }
 
 
+export const updateTask = async(id, updates) => {
+        const res = await axios.put(`${API_URL}/${id}`, updates)
+        return res.data
+}
+
+
 export const deleteTasks = async(id)=> {
         await axios.delete(`${API_URL}/${id}`)
+}
+
+export const reOrderTask = async(updatedTasks) => {
+        await axios.put(`${API_URL}/reorder`, {updatedTasks})
+
 }
