@@ -1,15 +1,18 @@
-import { signInWithGoogle } from "../firebase";
+import { useContext } from "react";
+import { AuthContext} from "../../Providers/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 // import loginImage from "../assets/login-bg.jpg"; // Add a nice background image
 
 const Login = () => {
   const navigate = useNavigate();
+  const {user, signInWithGoogle} = useContext(AuthContext)
+  console.log(user)
 
   const handleGoogleLogin = async () => {
     const user = await signInWithGoogle();
     if (user) {
-      Swal.fire("Welcome!", `Logged in as ${user.displayName}`, "success");
+      Swal.fire("Welcome!", `Logged in as ${user?.displayName}`, "success");
       navigate("/"); // Redirect to the main page
     } else {
       Swal.fire("Error", "Failed to log in!", "error");

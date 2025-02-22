@@ -1,19 +1,9 @@
-/* eslint-disable react/prop-types */
 import { createContext, useEffect, useState } from "react";
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-//   updateProfile,
-} from "firebase/auth";
+import { GoogleAuthProvider, createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from "firebase/auth";
+import API_URL from "../Api/Api.js";
 import { app } from "../firebase/firebase.config.js";
-// import axios from "axios";
+import axios from "axios";
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext(null);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
@@ -42,52 +32,28 @@ const AuthProvider = ({ children }) => {
     return signOut(auth);
   };
 
-  //   const updateUserProfile = (name, photo) => {
-  //     return updateProfile(auth.currentUser, {
-  //       displayName: name,
-  //       photoURL: photo,
-  //     })
-  //   }
-
-  // onAuthStateChange
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log("CurrentUser-->", currentUser?.email);
-
-//       if (currentUser?.email) {
-//         setUser(currentUser);
-
-//         // save user
-//         await axios.post(
-//           `${import.meta.env.VITE_API_URL}/api/users/${currentUser?.email}`,
-//           {
-//             name: currentUser?.displayName,
-//             image: currentUser?.photoURL,
-//             email: currentUser?.email,
-//           }
-//         );
-
-//         // Get JWT token
-//         await axios.post(
-//           `${import.meta.env.VITE_API_URL}/api/jwt`,
-//           {
-//             email: currentUser?.email,
-//           },
-//           { withCredentials: true }
-//         );
-//       } else {
-//         setUser(currentUser);
-//         await axios.get(`${import.meta.env.VITE_API_URL}/api/logout`, {
-//           withCredentials: true,
-//         });
-//       }
-      setLoading(false);
-    });
-    return () => {
-      return unsubscribe();
-    };
-  }, []);
+        setLoading(true);
+    
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser?.email) {
+                setUser(currentUser);
+    
+                // ✅ Ensure JWT token request includes credentials
+                await axios.post(`${API_URL}/tasks/jwt`, 
+                    { email: currentUser.email }, 
+                    { withCredentials: true }
+                );
+            } else {
+                setUser(null);
+                await axios.get(`${API_URL}/logout`, { withCredentials: true });
+            }
+            setLoading(false);
+        });
+    
+        return () => unsubscribe();
+    }, []);
+    
 
   const authInfo = {
     user,
@@ -98,12 +64,9 @@ const AuthProvider = ({ children }) => {
     signIn,
     signInWithGoogle,
     logOut,
-    //     updateUserProfile,
   };
 
-  return (
-    <AuthContext.Provider value={authInfo}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={authInfo}>{children}</AuthContext.Provider>;
 };
 
 export default AuthProvider;

@@ -1,156 +1,298 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getTasks,
+  createTasks,
+  deleteTasks,
+  reorderTasks,
+  logActivity,
+  getActivityLogs,
+} from "../../Api/Api.js";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { createTask, deleteTasks, getTask, reOrderTask, updateTask } from "../../Api/Api";
 import Swal from "sweetalert2";
+import {
+  FaTasks,
+  FaSpinner,
+  FaCheckCircle,
+  FaSun,
+  FaMoon,
+  FaTrash,
+} from "react-icons/fa";
 
-const Home = () => {
-    const [tasks, setTasks] = useState([]);
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [newTaskDescription, setNewTaskDescription] = useState('');
-    const [newTaskDate, setNewTaskDate] = useState('');
+import { AuthContext } from "../../Providers/AuthProvider.jsx";
 
-    useEffect(() => {
-        loadTasks();
-    }, []);
+function Home() {
+        const [taskCounts, setTaskCounts] = useState({
+                toDo: 0,
+                inProgress: 0,
+                done: 0,
+              });
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDesc, setNewTaskDesc] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [darkMode, setDarkMode] = useState(false);
+  const { user } = useContext(AuthContext);
+  const queryClient = useQueryClient();
 
-    const loadTasks = async () => {
-        const data = await getTask();
-        setTasks(data);
-    };
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: getTasks,
+  });
+  const { data: activities = [] } = useQuery({
+    queryKey: ["activities"],
+    queryFn: getActivityLogs,
+  });
 
-    const addTask = async () => {
-        if (!newTaskTitle || !newTaskDate) {
-            Swal.fire("Error", "Task title and date are required!", "error");
-            return;
-        }
-        const newTask = await createTask({
-            title: newTaskTitle,
-            description: newTaskDescription,
-            date: newTaskDate,
-            category: 'To-Do'
+//   const taskCounts = {
+//     toDo: tasks.filter((task) => task.category === "To-Do").length,
+//     inProgress: tasks.filter((task) => task.category === "In Progress").length,
+//     done: tasks.filter((task) => task.category === "Done").length,
+//   };
+
+  useEffect(() => {
+        setTaskCounts({
+          toDo: tasks.filter((task) => task.category === "To-Do").length,
+          inProgress: tasks.filter((task) => task.category === "In Progress").length,
+          done: tasks.filter((task) => task.category === "Done").length,
         });
-        setTasks([...tasks, newTask]);
-        setNewTaskTitle('');
-        setNewTaskDescription('');
-        setNewTaskDate('');
-        Swal.fire("Success", "Task added successfully!", "success");
-    };
+      }, [tasks]);
+      
 
-    const handleDragEnd = async (result) => {
+  const addTaskMutation = useMutation({
+    mutationFn: createTasks,
+    onSuccess: (newTask) => {
+      queryClient.invalidateQueries(["tasks"]);
+      logActivityMutation.mutate(`Task "${newTask.title}" added`);
+      setNewTaskTitle("");
+      setNewTaskDesc("");
+      setNewTaskDueDate("");
+      Swal.fire("Success", "Task added successfully!", "success");
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: deleteTasks,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries(["tasks"]);
+      logActivityMutation.mutate(`Task deleted`);
+      Swal.fire("Deleted!", "Your task has been deleted.", "success");
+    },
+  });
+
+  const reorderTaskMutation = useMutation({
+    mutationFn: reorderTasks,
+    onMutate: async ({ taskId, newCategory, newIndex }) => {
+      await queryClient.cancelQueries(["tasks"]);
+
+      const previousTasks = queryClient.getQueryData(["tasks"]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(["tasks"], (oldTasks) => {
+        return oldTasks.map((task) => {
+          if (task._id === taskId) {
+            return { ...task, category: newCategory, order: newIndex };
+          }
+          return task;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, variables, context) => {
+      // Revert UI if mutation fails
+      queryClient.setQueryData(["tasks"], context.previousTasks);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["tasks"]); // Refetch tasks from server
+    },
+  });
+
+  const logActivityMutation = useMutation({
+    mutationFn: logActivity,
+    onSuccess: () => queryClient.invalidateQueries(["activities"]),
+  });
+
+  const addTask = () => {
+    if (!newTaskTitle.trim()) {
+      return Swal.fire("Error", "Task title is required!", "error");
+    }
+    addTaskMutation.mutate({
+      title: newTaskTitle,
+      description: newTaskDesc,
+      category: "To-Do",
+      dueDate: newTaskDueDate,
+      email: user?.email,
+    });
+  };
+
+  const handleDelete = (id) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete it!",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteTaskMutation.mutate(id);
+      }
+    });
+  };
+
+  //     const handleDragEnd = (result) => {
+  //         if (!result.destination) return;
+  //         const movedTask = tasks[result.source.index];
+  //         reorderTaskMutation.mutate({ taskId: movedTask._id, newCategory: result.destination.droppableId, newIndex: result.destination.index });
+  //         logActivityMutation.mutate(`Task "${movedTask.title}" moved to ${result.destination.droppableId}`);
+  //     };
+
+  const handleDragEnd = (result) => {
         if (!result.destination) return;
-        
-        const movedTaskIndex = tasks.findIndex(task => task._id === result.draggableId);
-        if (movedTaskIndex === -1) return;
-
-        const movedTask = { ...tasks[movedTaskIndex], category: result.destination.droppableId };
-        const updatedTasks = [...tasks];
-        updatedTasks.splice(movedTaskIndex, 1);
-        updatedTasks.splice(result.destination.index, 0, movedTask);
-        
-        const confirmMove = await Swal.fire({
-            title: "Confirm Move",
-            text: `Move this task to ${result.destination.droppableId}?`,
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes, move it!"
-        });
-
-        if (confirmMove.isConfirmed) {
-            setTasks(updatedTasks);
-            reOrderTask(updatedTasks);
-            Swal.fire("Success", "Task moved successfully!", "success");
-        } else {
-            setTasks([...tasks]);
+      
+        const { source, destination, draggableId } = result;
+      
+        if (
+          source.droppableId !== destination.droppableId ||
+          source.index !== destination.index
+        ) {
+          const taskId = draggableId;
+          const newCategory = destination.droppableId;
+          const newIndex = destination.index;
+      
+          reorderTaskMutation.mutate(
+            { taskId, newCategory, newIndex },
+            {
+              onSuccess: () => {
+                queryClient.invalidateQueries(["tasks"]);
+              },
+              onMutate: () => {
+                setTaskCounts((prevCounts) => {
+                  const updatedCounts = { ...prevCounts };
+                  updatedCounts[source.droppableId]--;
+                  updatedCounts[newCategory]++;
+                  return updatedCounts;
+                });
+              },
+            }
+          );
+      
+          logActivityMutation.mutate(`Task moved to ${newCategory}`);
         }
-    };
+      };
+      
 
-    const handleDelete = async (id) => {
-        const result = await Swal.fire({
-            title: "Are you sure?",
-            text: "You won't be able to undo this!",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Yes, delete it!",
-        });
+  return (
+    <div
+      className={`p-6 max-w-4xl mx-auto ${
+        darkMode ? "bg-gray-900 text-white" : "bg-white text-black"
+      }`}
+    >
+      {/* <button
+        onClick={() => setDarkMode(!darkMode)}
+        className="absolute top-4 right-4 bg-gray-800 text-white p-2 rounded"
+      >
+        {darkMode ? <FaSun /> : <FaMoon />}
+      </button> */}
+      <h1 className="text-2xl font-bold text-center">Task Manager</h1>
 
-        if (result.isConfirmed) {
-            await deleteTasks(id);
-            setTasks(tasks.filter((task) => task._id !== id));
-            Swal.fire("Deleted!", "Your task has been deleted.", "success");
-        }
-    };
+      <div className="flex gap-2 my-4">
+        <span className="text-blue-500">
+          <FaTasks /> {taskCounts.toDo} To-Do
+        </span>
+        <span className="text-yellow-500">
+          <FaSpinner /> {taskCounts.inProgress} In Progress
+        </span>
+        <span className="text-green-500">
+          <FaCheckCircle /> {taskCounts.done} Done
+        </span>
+      </div>
 
-    const categoryColors = {
-        "To-Do": "bg-blue-200",
-        "In Progress": "bg-yellow-200",
-        "Done": "bg-green-200",
-    };
+      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+        <input
+          value={newTaskTitle}
+          onChange={(e) => setNewTaskTitle(e.target.value)}
+          placeholder="Task Title..."
+          className="border p-2 flex-1 rounded"
+        />
+        <input
+          value={newTaskDesc}
+          onChange={(e) => setNewTaskDesc(e.target.value)}
+          placeholder="Description..."
+          className="border p-2 flex-1 rounded"
+        />
+        <input
+          type="date"
+          value={newTaskDueDate}
+          onChange={(e) => setNewTaskDueDate(e.target.value)}
+          className="border p-2 rounded"
+        />
+        <button
+          onClick={addTask}
+          className="p-2 bg-blue-500 text-white rounded"
+        >
+          Add
+        </button>
+      </div>
 
-    return (
-        <div className="p-6 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold text-center">Task Manager</h1>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        {["To-Do", "In Progress", "Done"].map((category) => (
+          <Droppable key={category} droppableId={category}>
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="p-4 bg-gray-100 rounded shadow-md"
+              >
+                <h2 className="text-xl font-semibold">{category}</h2>
+                {tasks
+                  .filter((task) => task.category === category)
+                  .map((task, index) => (
+                    <Draggable
+                      key={task._id}
+                      draggableId={task._id}
+                      index={index}
+                    >
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className="mt-2 p-3 border rounded flex justify-between bg-white"
+                        >
+                          <p className="font-bold">{task.title}</p>
+                          <button
+                            onClick={() => handleDelete(task._id)}
+                            className="text-red-500"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        ))}
+      </DragDropContext>
 
-            {/* Add Task Form */}
-            <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                <input
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder="Task Title..."
-                    className="border p-2 flex-1 rounded"
-                />
-                <input
-                    value={newTaskDescription}
-                    onChange={(e) => setNewTaskDescription(e.target.value)}
-                    placeholder="Task Description..."
-                    className="border p-2 flex-1 rounded"
-                />
-                <input
-                    type="date"
-                    value={newTaskDate}
-                    onChange={(e) => setNewTaskDate(e.target.value)}
-                    className="border p-2 rounded"
-                />
-                <button onClick={addTask} className="p-2 bg-blue-500 text-white rounded">Add Task</button>
-            </div>
-
-            {/* Drag-and-Drop Task Management */}
-            <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    {["To-Do", "In Progress", "Done"].map((category) => (
-                        <Droppable key={category} droppableId={category}>
-                            {(provided) => (
-                                <div ref={provided.innerRef} {...provided.droppableProps} className={`p-4 rounded shadow-md ${categoryColors[category]}`}>
-                                    <h2 className="text-xl font-semibold">{category}</h2>
-                                    {tasks.filter((task) => task.category === category).map((task, index) => (
-                                        <Draggable key={task._id} draggableId={task._id} index={index}>
-                                            {(provided) => (
-                                                <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    {...provided.dragHandleProps}
-                                                    className="mt-2 p-3 bg-white border rounded shadow-sm flex justify-between items-center"
-                                                >
-                                                    <div>
-                                                        <p className="font-bold flex items-center">
-                                                            {task.title} {task.category === "Done" && <span className="text-green-600 ml-2">✔️</span>}
-                                                        </p>
-                                                        <p className="text-gray-600 text-sm">{task.description}</p>
-                                                        <p className="text-gray-500 text-xs">📅 {task.date}</p>
-                                                    </div>
-                                                    <button onClick={() => handleDelete(task._id)} className="text-red-500">X</button>
-                                                </div>
-                                            )}
-                                        </Draggable>
-                                    ))}
-                                    {provided.placeholder}
-                                </div>
-                            )}
-                        </Droppable>
-                    ))}
-                </div>
-            </DragDropContext>
-        </div>
-    );
-};
+      <div className="mt-8 p-4 bg-gray-200 rounded shadow-md">
+        <h2 className="text-xl font-semibold">Activity Log</h2>
+        <ul className="mt-2 space-y-2">
+          {activities
+            .slice(-5)
+            .reverse()
+            .map((activity, index) => (
+              <li key={index} className="text-sm">
+                {new Date(activity.timestamp).toLocaleTimeString()} -{" "}
+                {activity.message}
+              </li>
+            ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 export default Home;
