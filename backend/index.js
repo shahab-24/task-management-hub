@@ -171,35 +171,7 @@ app.post('/tasks', verifyToken, async (req, res) => {
 
     // Reorder Tasks API
   
-    app.put("/tasks/reorder", async (req, res) => {
-        const { taskId, newCategory, newIndex } = req.body;
-    
-        // Validate the request body
-        if (!taskId || !newCategory || newIndex === undefined) {
-            return res.status(400).json({ message: "Invalid task data" });
-        }
-    
-        // Validate ObjectId format
-        if (!ObjectId.isValid(taskId)) {
-            return res.status(400).json({ message: "Invalid taskId format" });
-        }
-    
-        try {
-            const result = await tasksCollection.updateOne(
-                { _id: new ObjectId(taskId) },
-                { $set: { category: newCategory, order: newIndex } }
-            );
-    
-            if (result.modifiedCount === 0) {
-                return res.status(400).json({ message: "No changes made" });
-            }
-    
-            res.json({ message: "Reorder successful" });
-        } catch (error) {
-            console.error("Database error:", error);
-            res.status(500).json({ message: "Failed to update order", error: error.message });
-        }
-    });
+   
     
     
 
