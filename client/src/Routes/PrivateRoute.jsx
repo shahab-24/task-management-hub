@@ -1,23 +1,13 @@
-import { Navigate } from "react-router-dom";
-
-
-import Loader from "../Components/Shared/Loader";
 import { useContext } from "react";
+import { Redirect } from "react-router-dom";
 import { AuthContext } from "../Providers/AuthProvider";
 
+export default function PrivateRoute({ children }) {
+  const { user } = useContext(AuthContext);
 
-const PrivateRoute = ({children}) => {
-        
-        const { user, loading } = useContext(AuthContext);
-        
-        if(loading)return <Loader></Loader>
-        // if(user) return children;
+  if (!user) {
+    return <Redirect to="/login" />;
+  }
 
-
-  return user ? children : <Navigate to="/login" />;
+  return children;
 }
-
-        
-
-
-export default PrivateRoute;

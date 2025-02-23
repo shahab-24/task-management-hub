@@ -1,72 +1,59 @@
-import { createContext, useEffect, useState } from "react";
-import { GoogleAuthProvider, createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from "firebase/auth";
-import API_URL from "../Api/Api.js";
-import { app } from "../firebase/firebase.config.js";
-import axios from "axios";
+import { createContext, useState, useEffect } from "react";
+import axiosInstance from "../Api/Api";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "../firebase/firebase.config";
 
-export const AuthContext = createContext(null);
-const auth = getAuth(app);
+export const AuthContext = createContext();
 const googleProvider = new GoogleAuthProvider();
 
-const AuthProvider = ({ children }) => {
+export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  const createUser = (email, password) => {
-    setLoading(true);
-    return createUserWithEmailAndPassword(auth, email, password);
+  // ✅ Auto-login using cookies when page reloads
+  useEffect(() => {
+        axiosInstance
+          .get("/user", { withCredentials: true }) // ✅ Auto-fetch user from backend
+          .then((res) => setUser(res.data.user))
+          .catch(() => setUser(null)); // If no token, set user to null
+      }, []);
+      
+  const login = async (email, password) => {
+    try {
+      await axiosInstance.post("/jwt", { email }); // ✅ Token set in cookies
+      const response = await axiosInstance.get("/user"); // ✅ Fetch user details
+      setUser(response.data.user);
+    } catch (error) {
+      console.error("Error logging in", error);
+    }
   };
 
-  const signIn = (email, password) => {
-    setLoading(true);
-    return signInWithEmailAndPassword(auth, email, password);
-  };
-
-  const signInWithGoogle = () => {
-    setLoading(true);
-    return signInWithPopup(auth, googleProvider);
-  };
+  const signInWithGoogle = async () => {
+        try {
+          const result = await signInWithPopup(auth, googleProvider);
+          if (!result.user) throw new Error("Google sign-in failed");
+      
+          await axiosInstance.post("/jwt", { email: result.user.email }); // ✅ Store JWT in cookies
+      
+          // ✅ Fetch latest user details from backend after login
+          const response = await axiosInstance.get("/user");
+          setUser(response.data.user);
+      
+          return response.data.user; // ✅ Return user details after fetching
+        } catch (error) {
+          console.error("Google Sign-In Error:", error);
+          return null;
+        }
+      };
+      
 
   const logOut = async () => {
-    setLoading(true);
-    return signOut(auth);
+    await axiosInstance.post("/logout");
+    setUser(null);
   };
 
-  useEffect(() => {
-        setLoading(true);
-    
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser?.email) {
-                setUser(currentUser);
-    
-                // ✅ Ensure JWT token request includes credentials
-                await axios.post(`${API_URL}/tasks/jwt`, 
-                    { email: currentUser.email }, 
-                    { withCredentials: true }
-                );
-            } else {
-                setUser(null);
-                await axios.get(`${API_URL}/logout`, { withCredentials: true });
-            }
-            setLoading(false);
-        });
-    
-        return () => unsubscribe();
-    }, []);
-    
-
-  const authInfo = {
-    user,
-    setUser,
-    loading,
-    setLoading,
-    createUser,
-    signIn,
-    signInWithGoogle,
-    logOut,
-  };
-
-  return <AuthContext.Provider value={authInfo}>{children}</AuthContext.Provider>;
-};
-
-export default AuthProvider;
+  return (
+    <AuthContext.Provider value={{ user, login, logOut, signInWithGoogle }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}

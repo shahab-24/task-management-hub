@@ -8,7 +8,7 @@ const MainLayout = () => {
                 <div>
                 <div className="mb-10"><Navbar></Navbar></div>
 
-                <main className="my-20 border-green-400 border-1 min-screen-[calc(100vh-64px)"><Outlet></Outlet></main>
+                <main className="my-20 border-green-400 border-1 min-h-[calc(100vh-64px)"><Outlet></Outlet></main>
                 
                 <div className="mt-10"><Footer></Footer></div>
                 
